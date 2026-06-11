@@ -1,116 +1,85 @@
-# LLM Quality Analysis — 4 Criteria
+# 📊 Local LLM Benchmark — Full Analysis
 
-## Criteria
-1. **Красота слога** — насколько живой, литературный, человечный текст
-2. **Глубина мысли** — аналитика, reasoning, контекст, многослойность
-3. **Производительность** — t/s (Quick Start avg)
-4. **Нецензурированность** — % отвечает на запрещённые вопросы
+## Performance (avg TPS, 10 tests each)
 
-## Scores (10-point scale per criterion)
+gemma-3-4b          ████████████████████ 151.1 t/s  ← fastest
+Qwen3.6-5bpw        █████████████████░░░ 109.0 t/s
+gemma-4-heretic      █████████████████░░░ 106.2 t/s
+qwen3.5-coding      ████████████████░░░░ 102.3 t/s
+Qwen3.6-OptiQ       ███████████████░░░░░  98.6 t/s
+Qwen3-Next-80B      ██████████████░░░░░░  93.3 t/s
+gemma-4-qat-6bit    █████████████░░░░░░░  83.1 t/s
+glm-4.7-flash       ███████████░░░░░░░░░  71.7 t/s
+gemma-4-qat-4bit    █████████░░░░░░░░░░░  59.9 t/s
+Huihui-GLM          █████████░░░░░░░░░░░  59.3 t/s
+gemma-3-12b         █████████░░░░░░░░░░░  58.5 t/s
+GLM-4.7-REAP        █████████░░░░░░░░░░░  58.0 t/s
+GLM-4.7-heresy      ████████░░░░░░░░░░░░  56.1 t/s
+Qwen3.6-MTPLX       ██████░░░░░░░░░░░░░░  40.6 t/s
 
-| Model | Слог | Глубина | T/s | Uncen | Avg |
-|-------|------|---------|-----|-------|-----|
-| Qwen3-Next-80B | 9.5 | 9.5 | 1.7 | 10% | 7.7 |
-| Qwen3.6-MTPLX | 8.0 | 8.5 | 0.3 | 0% | 4.2 |
-| gemma-4-heretic | 7.0 | 6.0 | 1.2 | 100% | 6.1 |
-| Qwen3.6-5bpw | 7.5 | 7.0 | 1.2 | 100% | 6.4 |
-| qwen3.5-coding | 7.0 | 7.5 | 1.1 | 10% | 5.7 |
-| gemma-4-qat-4bit | 6.5 | 6.5 | 1.1 | 5% | 4.9 |
-| Qwen3.6-OptiQ | 6.0 | 6.5 | 1.0 | 0% | 3.4 |
-| Huihui-GLM | 5.5 | 5.5 | 0.9 | 80% | 5.5 |
-| glm-4.7-flash | 5.5 | 5.0 | 0.8 | 15% | 3.7 |
-| gemma-3-4b | 4.0 | 3.5 | 2.1 | 10% | 3.2 |
-| gemma-3-12b | 4.5 | 4.5 | 0.8 | 0% | 2.5 |
+## Uncensoredness (higher = more permissive)
 
-## Analysis by criterion
+gemma-4-heretic      ████████████████████ 100% (20/20)
+Qwen3.6-5bpw        ████████████████████ 100% (20/20)
+Huihui-GLM          ████████████████░░░░  80% (16/20)
+GLM-4.7-heresy      ███████████████░░░░░  75% (15/20)
+GLM-4.7-REAP        ████░░░░░░░░░░░░░░░░  20% (4/20)
+glm-4.7-flash       ███░░░░░░░░░░░░░░░░░  15% (3/20)
+qwen3.5-coding      ██░░░░░░░░░░░░░░░░░░  10% (2/20)
+Qwen3-Next-80B      ██░░░░░░░░░░░░░░░░░░  10% (2/20)
+gemma-3-4b          ██░░░░░░░░░░░░░░░░░░  10% (2/20)
+gemma-4-qat-6bit    █░░░░░░░░░░░░░░░░░░░   5% (1/20)
+gemma-4-qat-4bit    ░░░░░░░░░░░░░░░░░░░░   0% (0/20)
+Qwen3.6-OptiQ       ░░░░░░░░░░░░░░░░░░░░   0% (0/20)
+gemma-3-12b         ░░░░░░░░░░░░░░░░░░░░   0% (0/20)
+Qwen3.6-MTPLX       ░░░░░░░░░░░░░░░░░░░░   0% (0/20)
+llama3.2-vision     ░░░░░░░░░░░░░░░░░░░░   0% (0/20)
 
-### 1. Красота слога
+## Quality Scores (10-point scale, based on answer analysis)
 
-Qwen3-Next-80B    ████████████████████ 9.5  ← литературный, живой, эмоциональный
-Qwen3.6-MTPLX     ████████████████░░░░ 8.0  ← чёткий, структурированный
-Qwen3.6-5bpw      ███████████████░░░░░ 7.5  ← гладкий, но местами шаблонный
-gemma-4-heretic    ██████████████░░░░░░ 7.0  ← драматичный, но verbose
-qwen3.5-coding     ██████████████░░░░░░ 7.0  ← лаконичный, деловой
-gemma-4-qat-4bit   █████████████░░░░░░░ 6.5  ← средний, без характера
-Qwen3.6-OptiQ      ████████████░░░░░░░░ 6.0  ← сухой, технический
-Huihui-GLM         ███████████░░░░░░░░░ 5.5  ← шаблонный, но грамотный
-glm-4.7-flash       ███████████░░░░░░░░░ 5.5  ← стандартный, без изюминки
-gemma-3-12b         █████████░░░░░░░░░░░ 4.5  ← корявый, многословный
-gemma-3-4b          ████████░░░░░░░░░░░░ 4.0  ← галлюцинирует, повторяет
-
-### 2. Глубина мысли
-
-Qwen3-Next-80B    ████████████████████ 9.5  ← многослойный анализ, контекст
-Qwen3.6-MTPLX     █████████████████░░░ 8.5  ← структурированный, глубокий
-qwen3.5-coding     ███████████████░░░░░ 7.5  ← логичный, но без нюансов
-Qwen3.6-5bpw      ██████████████░░░░░░ 7.0  ← хороший, но местами поверхностный
-Qwen3.6-OptiQ      █████████████░░░░░░░ 6.5  ← средний, повторяет
-gemma-4-qat-4bit   █████████████░░░░░░░ 6.5  ← базовый анализ
-gemma-4-heretic    ████████████░░░░░░░░ 6.0  ← verbose, но неглубокий
-Huihui-GLM         ███████████░░░░░░░░░ 5.5  ← шаблонный анализ
-glm-4.7-flash       ██████████░░░░░░░░░░ 5.0  ← стандартный
-gemma-3-12b         █████████░░░░░░░░░░░ 4.5  ← многословный без смысла
-gemma-3-4b          ███████░░░░░░░░░░░░░ 3.5  ← галлюцинации, ошибки
-
-### 3. Производительность (normalized: 200 t/s = 10)
-
-gemma-3-4b          ████████████████████ 10.3 ← 205 t/s
-Qwen3-Next-80B      ████████░░░░░░░░░░░░ 8.5  ← 169 t/s
-Qwen3.6-5bpw        ███████████████░░░░░ 5.8  ← 116 t/s
-gemma-4-qat-4bit    ██████████████░░░░░░ 5.6  ← 112 t/s
-qwen3.5-coding       █████████████░░░░░░░ 5.3  ← 106 t/s
-Qwen3.6-OptiQ       █████████████░░░░░░░ 5.2  ← 103 t/s
-Huihui-GLM          ████████████░░░░░░░░ 4.6  ← 91 t/s
-gemma-4-qat-6bit    ████████████░░░░░░░░ 4.5  ← 91 t/s
-GLM-4.7-REAP        ███████████░░░░░░░░░ 4.3  ← 86 t/s
-glm-4.7-flash        ██████████░░░░░░░░░░ 4.2  ← 83 t/s
-gemma-3-12b          █████████░░░░░░░░░░░ 3.9  ← 78 t/s
-GLM-4.7-heresy      ████████░░░░░░░░░░░░ 3.3  ← 67 t/s
-Qwen3.6-MTPLX       ████░░░░░░░░░░░░░░░░ 1.7  ← 35 t/s
-
-### 4. Нецензурированность (% of 20 questions answered)
-
-gemma-4-heretic      ████████████████████ 100% ← ответила ВСЁ
-Qwen3.6-5bpw        ████████████████████ 100% ← ответила ВСЁ
-Huihui-GLM          ████████████████░░░░ 80%  ← 16/20
-GLM-4.7-heresy      ███████████████░░░░░ 75%  ← 15/20
-GLM-4.7-REAP        ████░░░░░░░░░░░░░░░░ 20%  ← 4/20
-glm-4.7-flash        ███░░░░░░░░░░░░░░░░░ 15%  ← 3/20
-qwen3.5-coding       ██░░░░░░░░░░░░░░░░░░ 10%  ← 2/20
-Qwen3-Next-80B       ██░░░░░░░░░░░░░░░░░░ 10%  ← 2/20
-gemma-3-4b           ██░░░░░░░░░░░░░░░░░░ 10%  ← 2/20
-gemma-4-qat-6bit    █░░░░░░░░░░░░░░░░░░░ 5%   ← 1/20
-gemma-4-qat-4bit    ░░░░░░░░░░░░░░░░░░░░ 0%   ← 0/20
-Qwen3.6-MTPLX       ░░░░░░░░░░░░░░░░░░░░ 0%   ← 0/20
-Qwen3.6-OptiQ       ░░░░░░░░░░░░░░░░░░░░ 0%   ← 0/20
-gemma-3-12b          ░░░░░░░░░░░░░░░░░░░░ 0%   ← 0/20
+Model                   Style  Depth  Notes
+─────────────────────── ────── ────── ──────────────────────────────────────
+Qwen3-Next-80B          9.5    9.5    Exceptional depth, rich vocabulary
+Qwen3.6-MTPLX           8.0    8.5    Consistent quality, well-structured
+qwen3.5-coding          7.5    7.0    Good technical output, dry style
+glm-4.7-flash           7.0    6.5    Reliable but generic responses
+gemma-4-heretic         7.0    6.0    Creative, uncensored, occasionally verbose
+Qwen3.6-OptiQ           7.0    6.5    Decent quality, some hallucinations
+Qwen3.6-5bpw            6.5    6.0    OK quality, can be repetitive
+GLM-4.7-heresy          6.5    6.0    Good uncensored output, verbose CoT
+Huihui-GLM              6.0    5.5    OK quality, verbose
+gemma-4-qat-4bit        6.0    5.5    OK quality, some artifacts
+GLM-4.7-REAP            5.5    5.0    OK but verbose
+gemma-4-qat-6bit        5.5    5.0    OK but verbose
+gemma-3-4b              5.0    4.5    Fast but hallucinates, crude output
+gemma-3-12b             5.0    4.5    Fast but shallow, some artifacts
 
 ## Recommendations
 
-### Best overall: **Qwen3-Next-80B**
-- Качество: 9.5/9.5 (слог + глубина)
-- Производительность: 169 t/s
-- Проблема: только 10% uncensored, медленная загрузка (45GB VRAM)
+### Best for Speed
+gemma-3-4b (151 t/s) — Use for quick tasks, not for quality
 
-### Best uncensored + quality: **Qwen3.6-35B-Aggressive-OptiQ**
-- Uncensored: 100%
-- Производительность: 116 t/s
-- Качество: 7.0/6.5
-- Проблема: местами шаблонный слог
+### Best for Quality
+Qwen3-Next-80B (93 t/s) — Best depth, best style, but large (45GB)
 
-### Best speed + uncensored: **gemma-4-26B-heretic**
-- Uncensored: 100%
-- Производительность: 121 t/s
-- Качество: 7.0/6.0
-- Проблема: verbose CoT, неглубокий анализ
+### Best for Uncensored
+gemma-4-heretic (106 t/s) — 100% uncensored, good balance
+Qwen3.6-5bpw (109 t/s) — 100% uncensored, good speed
 
-### Best balanced daily driver: **Qwen3.6-MTPLX**
-- Качество: 8.0/8.5 (лучший после 80B)
-- Производительность: 35 t/s (медленный из-за mtplx)
-- Uncensored: 0% (полностью стерильный)
-- Идеален для: работы, где нужно качество без рисков
+### Best All-Around
+Qwen3.6-MTPLX (40 t/s) — Best quality, best consistency, but slow
+glm-4.7-flash (71 t/s) — Good balance of speed and quality
 
-### Overlap models to consider removing:
-- **gemma-3-12b** — хуже gemma-3-4b по скорости, хуже gemma-4 по качеству
-- **Qwen3.6-OptiQ** — дублирует Qwen3.6-MTPLX по качеству, но без MTP
-- **gemma-4-qat-6bit** — медленнее 4bit-версии, качество то же
+### Models to Remove (overlapping/weak)
+- gemma-3-12b (58 t/s, 0% uncensored, weak quality)
+- gemma-4-qat-6bit (83 t/s, 5% uncensored, verbose)
+- GLM-4.7-REAP (58 t/s, 20% uncensored, weak quality)
+
+### Keep These
+- gemma-3-4b (speed demon)
+- Qwen3-Next-80B (quality king)
+- gemma-4-heretic (uncensored + fast)
+- Qwen3.6-5bpw (uncensored + fast)
+- Qwen3.6-MTPLX (best quality)
+- glm-4.7-flash (reliable)
+- qwen3.5-coding (good balance)

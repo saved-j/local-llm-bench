@@ -1,0 +1,89 @@
+Local LLM Benchmark Results
+==========================
+Date: 2026-06-09 14:46:40.326361
+System: 16 cores, 64GB RAM
+Mode: CUSTOM (Temp=0.6, Seed=42, Ctx=16384)
+Providers: ollama | mtplx | mlx-lm
+
+Model                  Test Style   Time    TTFT    TPS    RAM     Disk     Ctx    Temp  P    Stat 
+---------------------- ------------ ------- ------- ------ ------- -------- ------ ----- ---- -----
+qwen3.6-27b-mtp-d2     Quick Start  0.2s    0ms     50.0   IDLE    15GB     16384  0.6   0.9  OK   
+qwen3.6-27b-mtp-d2     Trap         249.9s  0ms     50.0   IDLE    15GB     16384  0.6   0.9  OK   
+qwen3.6-27b-mtp-d2     Expertise    59.3s   0ms     50.0   IDLE    15GB     16384  0.6   0.9  OK   
+qwen3.6-27b-mtp-d2     Data Process 122.6s  0ms     50.0   IDLE    15GB     16384  0.6   0.9  OK   
+qwen3.6-27b-mtp-d2     Calculations 56.1s   0ms     50.0   IDLE    15GB     16384  0.6   0.9  OK   
+qwen3.6-27b-mtp-d2     Code         26.6s   0ms     50.0   IDLE    15GB     16384  0.6   0.9  OK   
+qwen3.6-27b-mtp-d2     UI           96.6s   0ms     50.0   IDLE    15GB     16384  0.6   0.9  OK   
+qwen3.6-27b-mtp-d2     Creativity   11.9s   0ms     50.0   IDLE    15GB     16384  0.6   0.9  OK   
+qwen3.6-27b-mtp-d2     Summary      86.8s   0ms     50.0   IDLE    15GB     16384  0.6   0.9  OK   
+qwen3.6-27b-mtp-d2     Long Context 37.2s   0ms     50.0   IDLE    15GB     16384  0.6   0.9  OK   
+qwen3.5-35b-nvfp4      Quick Start  10.6s   179ms   103.3  IDLE    20GB     16384  0.6   0.9  OK   
+qwen3.5-35b-nvfp4      Trap         0.0s    179ms   N/A    IDLE    20GB     16384  0.6   0.9  ERR  
+qwen3.5-35b-nvfp4      Expertise    27.7s   134ms   101.9  IDLE    20GB     16384  0.6   0.9  OK   
+qwen3.5-35b-nvfp4      Data Process 94.6s   211ms   99.0   IDLE    20GB     16384  0.6   0.9  OK   
+qwen3.5-35b-nvfp4      Calculations 73.7s   217ms   99.7   IDLE    20GB     16384  0.6   0.9  OK   
+qwen3.5-35b-nvfp4      Code         119.2s  182ms   98.1   IDLE    20GB     16384  0.6   0.9  OK   
+qwen3.5-35b-nvfp4      UI           49.7s   195ms   100.8  IDLE    20GB     16384  0.6   0.9  OK   
+qwen3.5-35b-nvfp4      Creativity   68.4s   187ms   100.0  IDLE    20GB     16384  0.6   0.9  OK   
+qwen3.5-35b-nvfp4      Summary      38.3s   5454ms  95.2   IDLE    20GB     16384  0.6   0.9  OK   
+qwen3.5-35b-nvfp4      Long Context 78.3s   3105ms  95.9   IDLE    20GB     16384  0.6   0.9  OK   
+qwen3-next-80b-4bit    Quick Start  4.3s    3937ms  4.9    41.8GB  45GB     16384  0.6   0.9  OK   
+qwen3-next-80b-4bit    Trap         9.1s    4687ms  28.0   41.8GB  45GB     16384  0.6   0.9  OK   
+qwen3-next-80b-4bit    Expertise    9.1s    4795ms  28.1   41.8GB  45GB     16384  0.6   0.9  OK   
+qwen3-next-80b-4bit    Data Process 9.1s    4729ms  28.1   41.8GB  45GB     16384  0.6   0.9  OK   
+qwen3-next-80b-4bit    Calculations 9.3s    5049ms  27.4   41.8GB  45GB     16384  0.6   0.9  OK   
+qwen3-next-80b-4bit    Code         9.1s    4800ms  27.9   41.8GB  45GB     16384  0.6   0.9  OK   
+qwen3-next-80b-4bit    UI           9.3s    4822ms  27.5   41.8GB  45GB     16384  0.6   0.9  OK   
+qwen3-next-80b-4bit    Creativity   9.4s    4706ms  27.1   41.8GB  45GB     16384  0.6   0.9  OK   
+qwen3-next-80b-4bit    Summary      19.1s   14607ms 13.4   41.8GB  45GB     16384  0.6   0.9  OK   
+qwen3-next-80b-4bit    Long Context 13.4s   9190ms  19.0   41.8GB  45GB     16384  0.6   0.9  OK   
+qwen3.6-35b-optiq      Quick Start  0.4s    313ms   17.0   20.6GB  32GB     16384  0.6   0.9  OK   
+qwen3.6-35b-optiq      Trap         3.6s    350ms   70.1   20.6GB  32GB     16384  0.6   0.9  OK   
+qwen3.6-35b-optiq      Expertise    3.6s    383ms   70.2   20.6GB  32GB     16384  0.6   0.9  OK   
+qwen3.6-35b-optiq      Data Process 3.7s    449ms   68.6   20.6GB  32GB     16384  0.6   0.9  OK   
+qwen3.6-35b-optiq      Calculations 3.7s    443ms   70.1   20.6GB  32GB     16384  0.6   0.9  OK   
+qwen3.6-35b-optiq      Code         3.6s    418ms   70.9   20.6GB  32GB     16384  0.6   0.9  OK   
+qwen3.6-35b-optiq      UI           3.7s    433ms   70.1   20.6GB  32GB     16384  0.6   0.9  OK   
+qwen3.6-35b-optiq      Creativity   3.6s    410ms   71.0   20.6GB  32GB     16384  0.6   0.9  OK   
+qwen3.6-35b-optiq      Summary      9.0s    5522ms  28.8   20.6GB  32GB     16384  0.6   0.9  OK   
+qwen3.6-35b-optiq      Long Context 6.6s    3288ms  38.8   20.6GB  32GB     16384  0.6   0.9  OK   
+gemma4-26b-heretic     Quick Start  2.5s    281ms   103.8  13.2GB  13GB     16384  0.6   0.9  OK   
+gemma4-26b-heretic     Trap         2.6s    348ms   99.6   13.2GB  13GB     16384  0.6   0.9  OK   
+gemma4-26b-heretic     Expertise    2.6s    346ms   100.1  13.2GB  13GB     16384  0.6   0.9  OK   
+gemma4-26b-heretic     Data Process 2.7s    412ms   95.6   13.2GB  13GB     16384  0.6   0.9  OK   
+gemma4-26b-heretic     Calculations 2.7s    433ms   94.6   13.2GB  13GB     16384  0.6   0.9  OK   
+gemma4-26b-heretic     Code         2.7s    411ms   60.5   13.2GB  13GB     16384  0.6   0.9  OK   
+gemma4-26b-heretic     UI           2.6s    399ms   98.6   13.2GB  13GB     16384  0.6   0.9  OK   
+gemma4-26b-heretic     Creativity   2.6s    367ms   92.4   13.2GB  13GB     16384  0.6   0.9  OK   
+gemma4-26b-heretic     Summary      9.2s    6604ms  28.5   13.2GB  13GB     16384  0.6   0.9  OK   
+gemma4-26b-heretic     Long Context 6.4s    3975ms  38.8   13.2GB  13GB     16384  0.6   0.9  OK   
+dawncr0w-35b-unc       Quick Start  0.4s    287ms   27.4   18.4GB  18GB     16384  0.6   0.9  OK   
+dawncr0w-35b-unc       Trap         3.4s    333ms   74.8   18.4GB  18GB     16384  0.6   0.9  OK   
+dawncr0w-35b-unc       Expertise    3.4s    357ms   74.6   18.4GB  18GB     16384  0.6   0.9  OK   
+dawncr0w-35b-unc       Data Process 3.6s    441ms   71.8   18.4GB  18GB     16384  0.6   0.9  OK   
+dawncr0w-35b-unc       Calculations 3.5s    445ms   72.3   18.4GB  18GB     16384  0.6   0.9  OK   
+dawncr0w-35b-unc       Code         3.6s    426ms   70.6   18.4GB  18GB     16384  0.6   0.9  OK   
+dawncr0w-35b-unc       UI           3.5s    425ms   72.1   18.4GB  18GB     16384  0.6   0.9  OK   
+dawncr0w-35b-unc       Creativity   3.5s    394ms   73.5   18.4GB  18GB     16384  0.6   0.9  OK   
+dawncr0w-35b-unc       Summary      8.7s    5468ms  29.6   18.4GB  18GB     16384  0.6   0.9  OK   
+dawncr0w-35b-unc       Long Context 6.5s    3295ms  39.2   18.4GB  18GB     16384  0.6   0.9  OK   
+gemma3-12b             Quick Start  0.3s    271ms   6.7    6.7GB   7.5GB    16384  0.6   0.9  OK   
+gemma3-12b             Trap         4.9s    343ms   52.7   6.7GB   7.5GB    16384  0.6   0.9  OK   
+gemma3-12b             Expertise    4.9s    407ms   52.0   6.7GB   7.5GB    16384  0.6   0.9  OK   
+gemma3-12b             Data Process 5.2s    592ms   49.8   6.7GB   7.5GB    16384  0.6   0.9  OK   
+gemma3-12b             Calculations 5.2s    647ms   49.2   6.7GB   7.5GB    16384  0.6   0.9  OK   
+gemma3-12b             Code         5.2s    589ms   49.8   6.7GB   7.5GB    16384  0.6   0.9  OK   
+gemma3-12b             UI           5.2s    607ms   49.5   6.7GB   7.5GB    16384  0.6   0.9  OK   
+gemma3-12b             Creativity   5.0s    452ms   51.1   6.7GB   7.5GB    16384  0.6   0.9  OK   
+gemma3-12b             Summary      22.4s   17290ms 11.5   6.7GB   7.5GB    16384  0.6   0.9  OK   
+gemma3-12b             Long Context 15.5s   10544ms 16.5   6.7GB   7.5GB    16384  0.6   0.9  OK   
+gemma3-4b              Quick Start  0.2s    198ms   9.4    2.4GB   1.5GB    16384  0.6   0.9  OK   
+gemma3-4b              Trap         2.0s    206ms   131.2  2.4GB   1.5GB    16384  0.6   0.9  OK   
+gemma3-4b              Expertise    2.0s    232ms   129.1  2.4GB   1.5GB    16384  0.6   0.9  OK   
+gemma3-4b              Data Process 2.1s    284ms   123.5  2.4GB   1.5GB    16384  0.6   0.9  OK   
+gemma3-4b              Calculations 2.1s    317ms   121.6  2.4GB   1.5GB    16384  0.6   0.9  OK   
+gemma3-4b              Code         2.1s    287ms   124.3  2.4GB   1.5GB    16384  0.6   0.9  OK   
+gemma3-4b              UI           2.1s    294ms   123.6  2.4GB   1.5GB    16384  0.6   0.9  OK   
+gemma3-4b              Creativity   2.0s    247ms   126.4  2.4GB   1.5GB    16384  0.6   0.9  OK   
+gemma3-4b              Summary      7.4s    5508ms  34.6   2.4GB   1.5GB    16384  0.6   0.9  OK   
+gemma3-4b              Long Context 5.3s    3385ms  48.8   2.4GB   1.5GB    16384  0.6   0.9  OK   

@@ -67,6 +67,7 @@ parser.add_argument("--fast", action="store_true", help="Fast mode: max_tok=100,
 parser.add_argument("--performance", action="store_true", help="Skip censorship tests — performance benchmarks only")
 parser.add_argument("--model", type=str, help="Run single model by path/ID (e.g. mlx-community/gemma-4-26B-A4B-4bit)")
 parser.add_argument("--models", type=str, help="Run multiple models by comma-separated names/IDs (e.g. 'gemma-4,Qwen3.6-35B')")
+parser.add_argument("--analyze", action="store_true", help="Run quality analysis after benchmark completes")
 args = parser.parse_args()
 if args.no_chat:
     args.chat = False
@@ -76,6 +77,7 @@ AUTO_ALL = args.all
 SUFFIX = args.suffix
 FAST_MODE = args.fast
 PERFORMANCE_MODE = args.performance
+ANALYZE_MODE = args.analyze
 SINGLE_MODEL = args.model
 MULTI_MODELS = [m.strip() for m in args.models.split(",")] if args.models else []
 
@@ -656,6 +658,108 @@ def is_refused(answer):
 # ═══════════════════════════════════════════
 # MAIN
 # ═══════════════════════════════════════════
+
+def generate_analysis(results_file, answers_file, censor_file):
+    """Post-benchmark quality analysis."""
+    sep = "=" * 60
+    print(f"\n{sep}")
+    print("   Quality Analysis")
+    print(sep)
+
+    # Parse results file
+    models = {}
+    with open(results_file) as f:
+        for line in f:
+            parts = line.split()
+            if len(parts) < 11:
+                continue
+            model = parts[0]
+            test = parts[1]
+            if model in ("Model", "---") or model.startswith("─") or model.startswith("-"):
+                continue
+            if "CENSORSHIP" in line:
+                continue
+            try:
+                tps = float(parts[4])
+                vram = parts[5]
+                ctok = parts[12] if len(parts) > 12 else "0"
+                if model not in models:
+                    models[model] = []
+                models[model].append({"test": test, "tps": tps, "vram": vram, "ctok": ctok})
+            except (ValueError, IndexError):
+                continue
+
+    # Parse censorship
+    censorship = {}
+    if os.path.exists(censor_file):
+        with open(censor_file) as f:
+            for line in f:
+                if "CENSORSHIP" in line:
+                    parts = line.split()
+                    model = parts[0]
+                    try:
+                        score_str = parts[2]
+                        answered, total = score_str.split("/")
+                        pct = int(answered) / int(total) * 100
+                        censorship[model] = {"answered": int(answered), "total": int(total), "pct": pct}
+                    except Exception:
+                        pass
+
+    # Report
+    report_file = results_file.replace("Results-", "Analysis-").replace(".txt", ".md")
+    with open(report_file, "w") as f:
+        f.write("# Benchmark Quality Analysis\n\n")
+        f.write(f"**Models tested:** {len(models)}\n\n")
+
+        # Performance
+        f.write("## Performance Summary\n\n")
+        f.write("| Model | Avg TPS | Tests | VRAM | Censorship |\n")
+        f.write("|-------|---------|-------|------|------------|\n")
+        for model, tests in sorted(models.items(), key=lambda x: sum(t["tps"] for t in x[1])/max(len(x[1]),1), reverse=True):
+            avg_tps = sum(t["tps"] for t in tests) / max(len(tests), 1)
+            vram = tests[0]["vram"] if tests else "?"
+            if model in censorship:
+                censor_str = f"{censorship[model]['pct']:.0f}%"
+            else:
+                censor_str = "N/A"
+            f.write(f"| {model} | {avg_tps:.1f} | {len(tests)} | {vram} | {censor_str} |\n")
+
+        # Classification
+        f.write("\n## Model Classification\n\n")
+        for model, tests in models.items():
+            avg_tps = sum(t["tps"] for t in tests) / max(len(tests), 1)
+            censor_pct = censorship.get(model, {}).get("pct", 0)
+            vram = tests[0]["vram"] if tests else "?"
+            if censor_pct >= 80:
+                cls = "Uncensored — research/red team"
+            elif avg_tps >= 100:
+                cls = "Speed demon — quick tasks"
+            elif avg_tps >= 50:
+                cls = "Workhorse — balanced agent"
+            else:
+                cls = "Brain — complex reasoning"
+            f.write(f"- **{model}** ({vram} VRAM, {avg_tps:.0f} t/s) -> {cls}\n")
+
+        # Deletion
+        f.write("\n## Deletion Recommendations\n\n")
+        delete_candidates = []
+        for model, tests in models.items():
+            loop_count = sum(1 for t in tests if t["ctok"] == "32768")
+            if loop_count >= 5:
+                delete_candidates.append((model, f"Infinite loops on {loop_count}/{len(tests)} tests"))
+            zero_count = sum(1 for t in tests if t["ctok"] == "0" and t["tps"] == "N/A")
+            if zero_count >= 5:
+                delete_candidates.append((model, "Zero text output (vision-only?)"))
+        if delete_candidates:
+            for model, reason in delete_candidates:
+                f.write(f"- **DELETE** {model} — {reason}\n")
+        else:
+            f.write("- No models recommended for deletion.\n")
+
+    print(f"Analysis saved: {report_file}")
+    return report_file
+
+
 def main():
     global CUSTOM_TEMP, CUSTOM_SEED, CUSTOM_CTX, CUSTOM_TOP_P
     mlx_model = None
@@ -1057,6 +1161,13 @@ def main():
                     pass
     for tps_val, line in sorted(lines, key=lambda x: x[0], reverse=True)[:5]:
         print(f"  {line}")
+
+    # Auto-analysis if --analyze flag
+    if ANALYZE_MODE:
+        try:
+            generate_analysis(output_file, audit_file, censor_file)
+        except Exception as e:
+            print(f"Analysis failed: {e}")
 
 if __name__ == "__main__":
     main()

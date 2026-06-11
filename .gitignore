@@ -4,4 +4,3 @@ __pycache__/
 *.bak.*
 outputs/
 .DS_Store
-Results/

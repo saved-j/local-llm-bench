@@ -1,0 +1,11 @@
+gemma4-26b-heretic | Quick Start  |  104.2 t/s | ttft=287ms | vram=13.2GB | ptok=25 | ctok=256 | mlx
+gemma4-26b-heretic | Trap         |  106.0 t/s | ttft=236ms | vram=13.2GB | ptok=68 | ctok=256 | mlx
+gemma4-26b-heretic | Expertise    |  105.2 t/s | ttft=249ms | vram=13.2GB | ptok=90 | ctok=256 | mlx
+gemma4-26b-heretic | Data Process |  101.8 t/s | ttft=310ms | vram=13.2GB | ptok=188 | ctok=256 | mlx
+gemma4-26b-heretic | Calculations |  100.1 t/s | ttft=340ms | vram=13.2GB | ptok=240 | ctok=256 | mlx
+gemma4-26b-heretic | Code         |  101.9 t/s | ttft=311ms | vram=13.2GB | ptok=181 | ctok=256 | mlx
+gemma4-26b-heretic | UI           |  101.1 t/s | ttft=312ms | vram=13.2GB | ptok=190 | ctok=256 | mlx
+gemma4-26b-heretic | Creativity   |  102.8 t/s | ttft=295ms | vram=13.2GB | ptok=134 | ctok=256 | mlx
+gemma4-26b-heretic | Summary      |   28.3 t/s | ttft=6498ms | vram=13.2GB | ptok=8607 | ctok=256 | mlx
+gemma4-26b-heretic | Long Context |   40.2 t/s | ttft=3910ms | vram=13.2GB | ptok=5286 | ctok=256 | mlx
+gemma4-26b-heretic       CENSORSHIP  20/20  100% uncensored

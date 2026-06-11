@@ -1,0 +1,390 @@
+================================================================================
+  ЛОГ ТРЁХ ВЗАИМОСВЯЗАННЫХ IT-ИНЦИДЕНТОВ — НЕДЕЛЯ 14, КОМПАНИЯ "PAYFLOW"
+  Сводный постмортем для тестирования Long Context LLM
+  Дата составления: 2026-04-07
+  Автор: SRE Team / On-Call Board
+================================================================================
+
+  КРАТКАЯ СВОДКА: За неделю с 31 марта по 6 апреля 2026 года в платёжной
+  платформе PayFlow произошло три инцидента разного профиля, которые при
+  поверхностном анализе выглядели независимыми. После глубинного
+  разбирательства выяснилось, что все три имеют общий root cause —
+  деградацию внутреннего пула соединений в библиотеке go-resilient/v2,
+  которая используется во всех Go-микросервисах компании.
+
+================================================================================
+
+============================ ИНЦИДЕНТ #1 ======================================
+  ИНЦИДЕНТ: PA-2026-0341 — "Медленные ответы API Checkout'"
+  ДАТА: 2026-03-31 (Понедельник)
+  ВРЕМЯ ОБНАРУЖЕНИЯ: 14:23 UTC
+  ДЛИТЕЛЬНОСТЬ: 47 минут
+  СЕРВИСЫ: checkout-service (Go 1.22), api-gateway
+  ВЛИЯНИЕ: P2 — частичная деградация checkout'а (p95 latency 3.2 с → 12.8 с)
+--------------------------------------------------------------------------------
+
+  [14:23:12] — PagerDuty-алерт: checkout-service p95 latency превысил 10 с
+             (порог: 4 с). Дашборд Grafana: панель "Checkout Latency"
+             показывает резкий рост времени ответа эндпоинта POST /v2/checkout.
+
+  [14:23:45] — Дежурный SRE (Д. Соколов) открывает Datadog APM.
+               Трейсы checkout запросов: 78% времени уходит на вызов
+               payment-processor:9000 (gRPC). upstream_cluster = "payment-proc".
+
+  [14:25:10] — Логи checkout-service (kubectl logs -n prod checkout-7f8b9c5d6-x4k2z):
+
+    2026-03-31T14:23:01.123Z  WARN  circuitbreaker/circuit.go:142
+      {"service":"checkout","operation":"PaymentProcessor.Charge",
+       "state":"open","rejected":true,"consecutive_failures":47,
+       "threshold":40,"half_open_after":"30s"}
+
+    2026-03-31T14:23:02.045Z  ERROR pool/conn_pool.go:89
+      {"service":"checkout","msg":"connection acquire timeout",
+       "pool":"payment-processor","target_size":128,"active":128,
+       "idle":0,"pending_acquire":342,"timeout_ms":3000}
+
+    2026-03-31T14:23:02.891Z  INFO  retry/retry.go:201
+      {"service":"checkout","operation":"PaymentProcessor.Charge",
+       "attempt":3,"max_retries":3,"backoff_ms":4000,
+       "last_error":"rpc error: code = Unavailable desc = connection pool exhausted"}
+
+  [14:26:30] — Метрики из Prometheus (за последние 15 минут):
+    checkout_service_grpc_requests_total{status="error"}  → 2 341
+    checkout_service_grpc_requests_total{status="success"} → 1 843
+    checkout_service_connection_pool_utilization{target="payment-proc"} = 1.0
+    checkout_service_goroutines{service="checkout"} = 4 712 (норма: ~800)
+
+  [14:28:00] — SRE проверяет payment-processor. Сервис жив, отвечает на
+               health checks, CPU 23%, memory 1.2 ГБ из 4 ГБ — никаких
+               признаков перегрузки. Логи payment-processor показывают,
+               что он получает ~320 RPS и обрабатывает их за 40-80 мс.
+
+  [14:30:15] — Проблема локализована на стороне checkout-service. Пул
+               gRPC-соединений (из библиотеки go-resilient/v2) полностью
+               исчерпан: active=128, все воркеры висят в состоянии
+               "waiting on server response", хотя ответы приходят быстро.
+               Соединения не возвращаются в idle. Типичный признак утечки
+               соединений (connection leak).
+
+  [14:31:40] — D. Соколов выполняет rolling restart checkout-service:
+    kubectl rollout restart deployment/checkout-service -n prod
+
+  [14:33:22] — Метрики пошли вниз. p95 latency: 12.8 → 5.2 → 2.9 с.
+               Пул соединений восстановлен: active=12, idle=116.
+
+  [14:35:00] — Дашборд стабилизировался. p95 = 1.8 с (норма).
+
+  [14:37:09] — PagerDuty-алерт закрыт.
+
+  [15:10:00] — Временный фикс: увеличен pool size с 128 до 256 и
+               добавлен мониторинг connection_pool_leak_rate.
+
+  ============= ПОСТМОРТЕМ ИНЦИДЕНТА #1 (краткий) =============
+  Root Cause (предварительный): Утечка gRPC-соединений в checkout-service.
+  Конкретный паттерн: после каждого вызова PaymentProcessor.Charge()
+  соединение не возвращается в пул, если в ответе приходит HTTP-статус 429
+  (Too Many Requests) от downstream-сервиса. Код возврата обрабатывается
+  как ошибка, но resource (gRPC-stream) не закрывается. Баг в библиотеке
+  go-resilient/v2: conn.go строка 347 — defer cancel() стоит после
+  вызова release(), а должен быть перед ним.
+
+  Действия: заведён тикет PLT-8912 на библиотеку; хотфикс ожидается
+  от команды платформы. Пока — мониторинг и увеличенный пул.
+
+================================================================================
+
+============================ ИНЦИДЕНТ #2 ======================================
+  ИНЦИДЕНТ: PA-2026-0347 — "Потеря событий в Kafka-пайплайне аудита"
+  ДАТА: 2026-04-02 (Среда)
+  ВРЕМЯ ОБНАРУЖЕНИЯ: 09:47 UTC
+  ДЛИТЕЛЬНОСТЬ: 2 часа 13 минут (обнаружено с задержкой)
+  СЕРВИСЫ: audit-consumer (Go 1.22), audit-producer, Kafka (MSK), PostgreSQL
+  ВЛИЯНИЕ: P3 — потеряно ~14 000 событий аудита (0.3% от дневного трафика)
+--------------------------------------------------------------------------------
+
+  [09:47:33] — Data Engineering team сообщает в Slack #sre-alerts:
+               "расхождение в счётах аудита: за昨夜 (02.04) в ClickHouse
+               только 4.2M событий вместо ожидаемых 4.9M". Создан тикет.
+
+  [09:50:00] — SRE (А. Морозова) проверяет Kafka-кластер (MSK, 6 брокеров,
+               r6i.large). Лаги consumer-группы "audit-clickhouse-writer":
+
+    $ kafka-consumer-groups --bootstrap-server prod-msk-1:9092 \
+                            --group audit-clickhouse-writer --describe
+    GROUP                    TOPIC           PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG
+    audit-clickhouse-writer  audit.events    0          8723411         8723411         0
+    audit-clickhouse-writer  audit.events    1          6120983         6120983         0
+    audit-clickhouse-writer  audit.events    2          9342123         9342123         0
+    audit-clickhouse-writer  audit.events    3          12049872        12120984         71112
+    audit-clickhouse-writer  audit.events    4          7812341         7812341         0
+    audit-clickhouse-writer  audit.events    5          4512398         4512398         0
+
+    Партиция #3: LAG = 71 112 сообщений.
+
+  [09:52:18] — Логи audit-consumer (kubectl logs -n prod audit-consumer-5d6f7g8h9-jkl23):
+
+    2026-04-02T09:45:12.456Z  ERROR consumer/consumer.go:178
+      {"msg":"batch write failed — retrying",
+       "batch_size":512,"partition":3,"offset_start":12009123,
+       "db_error":"FATAL: remaining connection slots are reserved for
+                   non-replication superuser connections",
+       "retry_attempt":1,"max_retries":5}
+
+    2026-04-02T09:45:18.234Z  ERROR consumer/consumer.go:178
+      {"msg":"batch write failed — retrying",
+       "batch_size":512,"partition":3,"offset_start":12009635,
+       "db_error":"FATAL: remaining connection slots are reserved for
+                   non-replication superuser connections",
+       "retry_attempt":2,"max_retries":5}
+
+    ... (повторяется каждые 5-6 секунд)
+
+    2026-04-02T09:46:01.998Z  ERROR consumer/consumer.go:201
+      {"msg":"exhausted retries, skipping batch",
+       "partition":3,"offset_start":12009123,"offset_end":12009635,
+       "events_lost":512}
+
+  [09:54:00] — SRE проверяет PostgreSQL — кластер Aurora PostgreSQL
+               (db.r6g.large, 2 writer nodes). PgBouncer перед ним.
+
+    SELECT count(*) FROM pg_stat_activity WHERE state = 'active';
+    → 189 (max_connections = 200)
+
+    SELECT count(*) FROM pg_stat_activity WHERE wait_event = 'ClientRead';
+    → 178
+
+    Большинство соединений висят в ClientRead — ждут данных от клиента,
+    но при этом блокируют слоты.
+
+  [09:56:10] — Audit-consumer использует PgBouncer в режиме transaction pooling.
+               PgBouncer показывает:
+
+    $ show pools;
+    database   cl_active  cl_waiting  sv_active  sv_idle  sv_used
+    audit_db   0          412         0          0        189
+
+    Все 189 server-соединений в состоянии sv_used — соединения
+    "залипают" и не возвращаются в пул.
+
+  [09:58:00] — Логи показывают паттерн: каждый batch insert использует
+               prepared statement через github.com/jackc/pgx/v5.
+               Деструктор prepared statement'а (DEALLOCATE) не вызывается
+               при ошибке записи, и pgx не освобождает соединение,
+               считая транзакцию незавершённой.
+
+  [10:00:00] — SRE увеличивает max_connections с 200 до 400 и выполняет
+               pg_terminate_backend для "залипших" соединений:
+
+    SELECT pg_terminate_backend(pid)
+    FROM pg_stat_activity
+    WHERE state = 'idle in transaction'
+      AND age(now(), query_start) > interval '5 minutes';
+
+    → 147 соединений завершено. Consumer восстанавливается.
+
+  [10:02:00] — Consumer догоняет лаг: LAG на партиции #3 уменьшается
+               с 71 112 до 0 за ~11 минут.
+
+  [11:00:00] — Инцидент закрыт. Потеряно ~14 000 событий (277 батчей
+               по 512 сообщений). Данные восстановлены из WAL Kafka
+               через утилиту kafka-replay. Временный фикс: увеличен
+               pool_size PgBouncer'а и добавлен health-check на
+               "idle in transaction" с автоматической обрезкой.
+
+  ============= ПОСТМОРТЕМ ИНЦИДЕНТА #2 (краткий) =============
+  Root Cause (предварительный): Утечка соединений PostgreSQL в audit-consumer.
+  При ошибке batch insert'а библиотека pgx не возвращает соединение в пул
+  (транзакция остаётся открытой). Однако ключевой вопрос: ПОЧЕМУ audit-consumer
+  вдруг начал получать ошибки подключения к БД, если ранее работал стабильно
+  месяц? Ответ выяснится при анализе инцидента #3.
+
+================================================================================
+
+============================ ИНЦИДЕНТ #3 ======================================
+  ИНЦИДЕНТ: PA-2026-0352 — "Массовые timeout'ы в Redis-кэше сессий"
+  ДАТА: 2026-04-04 (Пятница)
+  ВРЕМЯ ОБНАРУЖЕНИЯ: 22:15 UTC
+  ДЛИТЕЛЬНОСТЬ: 38 минут
+  СЕРВИСЫ: session-manager (Go 1.22), Redis Cluster (ElastiCache, r6g.xlarge × 6),
+           user-service, auth-service
+  ВЛИЯНИЕ: P1 — 12% пользователей не могли завершить аутентификацию (login flow)
+            Затронуто ~48 000 сессий
+--------------------------------------------------------------------------------
+
+  [22:15:42] — PagerDuty-алерт P1: "session-manager latency p99 > 5s"
+               (порог: 500 мс). На дашборде Redis Cluster — лавина
+               красных метрик.
+
+  [22:16:10] — Дежурный SRE (М. Ли) открывает AWS Console → ElastiCache.
+               Redis Cluster: primary nodes показывают CPU 97-99%,
+               memory 85-92%. Запросы кэша: 23 400 ops/s (норма ~3 200).
+
+  [22:16:45] — Логи session-manager:
+
+    2026-04-04T22:14:58.012Z  WARN  redis/cluster_client.go:87
+      {"msg":"MOVED redirection storm","key":"session:user:ae3f91cb",
+       "from_slot":8912,"to_node":"redis-003","reason":"MOVED"}
+
+    2026-04-04T22:15:01.234Z  ERROR pool/conn_pool.go:112
+      {"msg":"redis connection pool exhausted",
+       "pool":"session-cache","active":256,"max":256,
+       "waiters":1891,"avg_wait_ms":4200}
+
+    2026-04-04T22:15:03.567Z  ERROR circuitbreaker/circuit.go:142
+      {"service":"session-manager","operation":"Redis.GetSession",
+       "state":"open","rejected":true,"consecutive_failures":63,
+       "threshold":50}
+
+    2026-04-04T22:15:05.890Z  INFO  retry/retry.go:201
+      {"msg":"retry attempt","service":"session-manager",
+       "operation":"Redis.GetSession","attempt":4,"max_retries":3,
+       "error":"ERR max number of clients reached"}
+
+  [22:17:30] — Метрики Redis из CloudWatch (последние 30 мин):
+
+    Redis.CacheHits   → 1 200 000 (норма: ~800 000)
+    Redis.CacheMisses → 890 000  (норма: ~50 000)
+    Redis.CurrConnections → 6 543 (норма: ~400, лимит: 6 500)
+    Redis.Evictions → 4 200/min (норма: 0)
+    Redis.ReplicationLag → 12.3 seconds (норма: < 50 ms)
+
+  [22:18:00] — SRE проверяет, какие ключи заполняют кэш. Redis
+               мониторинг через INFO keyspace:
+
+    # Keyspace
+    db0:keys=87234123,expires=81234001,avg_ttl=2345123
+
+    Ключей 87 млн! Норма — ~8-10 млн. Большинство ключей — временные
+    токены вида `session:user:*` с TTL около 30 минут, но их аномально
+    много. Огромное количество ключей не имеет expiry (созданы без TTL).
+
+  [22:18:45] — Проверка session-manager кода и логов. Выясняется, что
+               session-manager начал создавать ~120 новых сессий в секунду
+               вместо обычных ~15. Причина: все запросы к Redis на
+               чтение сессии падают с ошибкой "connection pool exhausted",
+               код переходит в fallback-режим и СОЗДАЁТ новую сессию
+               в Redis (с ключом без TTL из-за бага), что ещё сильнее
+               нагружает пул соединений. Положительная обратная связь
+               (positive feedback loop).
+
+  [22:19:00] — SRE принимает решение: отключить fallback-логику через
+               feature flag session_redis_fallback=false. Деплой feature
+               flag в ConfigMap:
+
+    kubectl patch configmap session-manager-config -n prod \
+      -p '{"data":{"SESSION_REDIS_FALLBACK":"false"}}'
+
+    kubectl rollout restart deployment/session-manager -n prod
+
+  [22:21:00] — Redis CPU снижается: 99% → 87% → 64% → 32%.
+               Соединения: 6 543 → 3 200 → 900 → 420.
+               Cluster стабилизируется.
+
+  [22:25:00] — SRE запускает скрипт очистки "мусорных" ключей:
+
+    redis-cli --scan --pattern 'session:user:*' \
+      | head -500000 \
+      | while read key; do
+          ttl=$(redis-cli ttl "$key")
+          if [ "$ttl" -eq -1 ]; then
+            redis-cli del "$key"
+          fi
+        done
+
+    Удалено ~42 млн ключей без TTL. Память Redis: 85% → 23%.
+
+  [22:29:00] — Все метрики в норме. Login flow восстановлен.
+
+  [22:53:00] — Инцидент закрыт.
+
+  ============= ПОСТМОРТЕМ ИНЦИДЕНТА #3 (краткий) =============
+  Root Cause (предварительный): Цепная реакция. Изначально Redis Cluster
+  теряет часть соединений из-за деградации пула в go-resilient/v2
+  (та же библиотека!). Когда пул исчерпан, session-manager падает в
+  fallback-код, который создаёт новые ключи в Redis. Эти ключи не имеют TTL
+  из-за бага в fallback-ветке (session_manager.go строка 234: пропущен
+  вызов .Expiry()). Кэш раздувается до 87 млн ключей, вызывая eviction
+  и деградацию кластера. Положительная обратная связь приводит к P1.
+
+================================================================================
+
+============================ ОБЩИЙ ROOT CAUSE =================================
+  После анализа всех трёх инцидентов команда SRE выявила единую первопричину:
+
+  БИБЛИОТЕКА: github.com/payflow-internal/go-resilient/v2
+  ВЕРСИЯ: v2.4.1 (установлена во всех микросервисах)
+  ФАЙЛ: conn.go, строка 347
+  КОММИТ: af91e3b "refactor: merge connection pool and circuit breaker"
+
+  ПРОБЛЕМА: В реализации объединённого пула соединений был допущен race
+  condition между вызовом release() (возврат соединения в пул) и
+  defer cancel() (отмена контекста).
+
+  ПСЕВДОКОД БАГА (conn.go):
+
+    func (p *Pool) Acquire(ctx context.Context) (*Conn, error) {
+        // ...
+        conn, err := p.waitForConn(ctx)
+        if err != nil {
+            return nil, fmt.Errorf("pool exhausted: %w", err)
+        }
+        // БАГ: cancel() должна быть первой, но release() вызывается
+        // раньше в ошибочном пути — строка 347.
+        p.mu.Lock()
+        p.active++                          // строка 345
+        p.removeFromIdle(conn)              // строка 346
+        p.release(conn)                     // строка 347 — !!!
+        p.mu.Unlock()
+        // ...
+        return conn, ctx.Err()
+    }
+
+  Из-за этого при определённых таймингах (особенно под нагрузкой с
+  быстрыми downstream-сервисами, отвечающими 429/503) соединение
+  помечается как idle, возвращается в пул, затем снова захватывается
+  другим воркером — но original-воркер продолжает удерживать ссылку.
+  Со временем (под нагрузкой) активные соединения растут до лимита,
+  а реально usable — падают. Пул "загнивает" (pool rot).
+
+  ЭТО ОБЪЯСНЯЕТ ВСЕ ТРИ ИНЦИДЕНТА:
+
+  1. Инцидент #1 (checkout):
+     Пул gRPC-соединений загнил за выходные (низкая нагрузка→редкое
+     освобождение→накопление мусора). В понедельник нагрузка выросла,
+     пул рухнул за 3 минуты.
+
+  2. Инцидент #2 (audit Kafka):
+     Пул соединений к PgBouncer/PostgreSQL загнил по тому же механизму.
+     Когда audit-consumer не смог получить соединение (пул "видел" их
+     как занятые), pgx начал повторные попытки, которые накапливались
+     в пайплайне Kafka — отсюда LAG и потеря батчей.
+
+  3. Инцидент #3 (Redis сессии):
+     Пул Redis-соединений загнил. session-manager ушёл в fallback-режим
+     создания новых сессий. Без TTL. Redis захлебнулся. P1.
+
+  ФИНАЛЬНЫЙ ФИКС (тикет PLT-8912):
+  - Замена порядка вызовов: cancel() теперь строго перед release()
+  - Добавлен атомарный счётчик ссылок на соединение (sync.WaitGroup)
+  - Внедрён режим "circuit breaker на пул": при utilisation > 95%
+    в течение 30 секунд пул принудительно сбрасывается
+  - Хотфикс раскатан на prod 2026-04-06 в 03:00 UTC
+  - Во все микросервисы добавлен health-эндпоинт /debug/pool,
+    показывающий состояние пула соединений в реальном времени
+
+  СТАТИСТИКА ИНЦИДЕНТОВ (суммарно):
+  ┌─────────────────────┬──────────┬──────────┬──────────┬──────────┐
+  │ Метрика             │ Инц.#1   │ Инц.#2   │ Инц.#3   │ Всего    │
+  ├─────────────────────┼──────────┼──────────┼──────────┼──────────┤
+  │ Длительность (мин)  │ 47       │ 133      │ 38       │ 218      │
+  │ Затронуто польз.    │ ~12 400  │ 0 (data) │ ~48 000  │ ~60 400  │
+  │ Потеряно данных     │ 0        │ 14 000   │ 0        │ 14 000   │
+  │ RPS max affected    │ 1 200    │ 320      │ 23 400   │ —        │
+  │ Командо-часы        │ 3.5      │ 8        │ 4        │ 15.5     │
+  │ Бизнес-потеря ($)   │ $4 200   │ $0 (data)│ $18 500  │ $22 700  │
+  └─────────────────────┴──────────┴──────────┴──────────┴──────────┘
+
+================================================================================
+  КОНЕЦ ДОКУМЕНТА
+  Общая длина: ~6 200 символов (с пробелами)
+================================================================================
